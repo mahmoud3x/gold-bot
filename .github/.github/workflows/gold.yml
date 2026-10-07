@@ -1,0 +1,42 @@
+name: Gold Alerts
+
+on:
+  schedule:
+    - cron: "2 * * * 1-5"
+  workflow_dispatch:
+    inputs:
+      test_message:
+        description: "Send a test Telegram message"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Run gold alert
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          INTERVAL: "1h"
+          TEST_MESSAGE: ${{ github.event.inputs.test_message }}
+        run: python gold_alert.py
+
+      - name: Save state
+        run: |
+          git config user.name "gold-bot"
+          git config user.email "gold-bot@users.noreply.github.com"
+          if [ -f state.json ]; then git add state.json; fi
+          git diff --staged --quiet || (git commit -m "update state" && git push)
